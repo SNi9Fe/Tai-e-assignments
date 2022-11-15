@@ -176,7 +176,9 @@ public class ConstantPropagation extends
         if(stmt instanceof DefinitionStmt dStmt){
             CPFact oldOut = out.copy();
             out.copyFrom(in);
-            out.update((Var) dStmt.getLValue(), evaluate(dStmt.getRValue(), in));
+            if(dStmt.getLValue() instanceof Var lVal){
+                out.update(lVal, evaluate(dStmt.getRValue(), in));
+            }
             return out.equals(oldOut);
         }else {
             return out.copyFrom(in);
