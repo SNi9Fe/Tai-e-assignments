@@ -3,7 +3,7 @@
     <img src="https://tai-e.pascal-lab.net/o-tai-e.webp" height="200">
   </a>
 
-## Tai-e Assignments for Static Program Analysis
+## Solution for Tai-e Assignments for Static Program Analysis
 </div>
 
 ### Getting Started
