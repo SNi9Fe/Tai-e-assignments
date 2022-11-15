@@ -25,20 +25,16 @@ package pascal.taie.analysis.dataflow.analysis.constprop;
 import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
 import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;
-import pascal.taie.ir.IR;
-import pascal.taie.ir.exp.ArithmeticExp;
 import pascal.taie.ir.exp.BinaryExp;
-import pascal.taie.ir.exp.BitwiseExp;
-import pascal.taie.ir.exp.ConditionExp;
 import pascal.taie.ir.exp.Exp;
 import pascal.taie.ir.exp.IntLiteral;
-import pascal.taie.ir.exp.ShiftExp;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
-import pascal.taie.util.AnalysisException;
+
+import java.util.Map;
 
 public class ConstantPropagation extends
         AbstractDataflowAnalysis<Stmt, CPFact> {
@@ -47,42 +43,6 @@ public class ConstantPropagation extends
 
     public ConstantPropagation(AnalysisConfig config) {
         super(config);
-    }
-
-    @Override
-    public boolean isForward() {
-        return true;
-    }
-
-    @Override
-    public CPFact newBoundaryFact(CFG<Stmt> cfg) {
-        // TODO - finish me
-        return null;
-    }
-
-    @Override
-    public CPFact newInitialFact() {
-        // TODO - finish me
-        return null;
-    }
-
-    @Override
-    public void meetInto(CPFact fact, CPFact target) {
-        // TODO - finish me
-    }
-
-    /**
-     * Meets two Values.
-     */
-    public Value meetValue(Value v1, Value v2) {
-        // TODO - finish me
-        return null;
-    }
-
-    @Override
-    public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
-        // TODO - finish me
-        return false;
     }
 
     /**
@@ -111,7 +71,115 @@ public class ConstantPropagation extends
      * @return the resulting {@link Value}
      */
     public static Value evaluate(Exp exp, CPFact in) {
-        // TODO - finish me
+        if (exp instanceof IntLiteral c) {
+            return Value.makeConstant(c.getValue());
+        } else if (exp instanceof Var v) {
+            return in.get(v);
+        } else if (exp instanceof BinaryExp be) {
+            Value y = in.get(be.getOperand1());
+            Value z = in.get(be.getOperand2());
+            if (y.isNAC() || z.isNAC()) {
+                return Value.getNAC();
+            } else if (y.isConstant() && z.isConstant()) {
+                int yVal = y.getConstant();
+                int zVal = z.getConstant();
+                switch (be.getOperator().toString()) {
+                    case "+":
+                        return Value.makeConstant(yVal + zVal);
+                    case "-":
+                        return Value.makeConstant(yVal - zVal);
+                    case "*":
+                        return Value.makeConstant(yVal * zVal);
+                    case "/":
+                        return Value.makeConstant(yVal / zVal);
+                    case "%":
+                        return Value.makeConstant(yVal % zVal);
+                    case "==":
+                        return Value.makeConstant(yVal == zVal ? 1 : 0);
+                    case "!=":
+                        return Value.makeConstant(yVal != zVal ? 1 : 0);
+                    case "<":
+                        return Value.makeConstant(yVal < zVal ? 1 : 0);
+                    case ">":
+                        return Value.makeConstant(yVal > zVal ? 1 : 0);
+                    case "<=":
+                        return Value.makeConstant(yVal <= zVal ? 1 : 0);
+                    case ">=":
+                        return Value.makeConstant(yVal >= zVal ? 1 : 0);
+                    case "<<":
+                        return Value.makeConstant(yVal << zVal);
+                    case ">>":
+                        return Value.makeConstant(yVal >> zVal);
+                    case ">>>":
+                        return Value.makeConstant(yVal >>> zVal);
+                    case "|":
+                        return Value.makeConstant(yVal | zVal);
+                    case "&":
+                        return Value.makeConstant(yVal & zVal);
+                    case "^":
+                        return Value.makeConstant(yVal ^ zVal);
+                }
+            } else {
+                return Value.getUndef();
+            }
+        } else {
+            return Value.getNAC();
+        }
         return null;
+    }
+
+    @Override
+    public boolean isForward() {
+        return true;
+    }
+
+    @Override
+    public CPFact newBoundaryFact(CFG<Stmt> cfg) {
+        CPFact cpf = new CPFact();
+        for (Var param : cfg.getIR().getParams()) {
+            if (canHoldInt(param)) {
+                cpf.update(param, Value.getNAC());
+            }
+        }
+        return cpf;
+    }
+
+    @Override
+    public CPFact newInitialFact() {
+        return new CPFact();
+    }
+
+    @Override
+    public void meetInto(CPFact fact, CPFact target) {
+        fact.entries().forEach(entry -> {
+            target.update(entry.getKey(), meetValue(entry.getValue(), target.get(entry.getKey())));
+        });
+    }
+
+    /**
+     * Meets two Values.
+     */
+    public Value meetValue(Value v1, Value v2) {
+        if (v1.isUndef() && v2.isConstant()) {
+            return v2;
+        } else if (v2.isUndef() && v1.isConstant()) {
+            return v1;
+        } else if (v1 == v2) {
+            return v1;
+        } else {
+            return Value.getNAC();
+        }
+    }
+
+    @Override
+    public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
+        if(stmt instanceof DefinitionStmt dStmt){
+            CPFact oldOut = out.copy();
+            out.copyFrom(in);
+            out.update((Var) dStmt.getLValue(), evaluate(dStmt.getRValue(), in));
+            return out.equals(oldOut);
+        }else {
+            return out.copyFrom(in);
+        }
     }
 }
