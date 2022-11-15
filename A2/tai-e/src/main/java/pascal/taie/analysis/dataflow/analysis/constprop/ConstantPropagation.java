@@ -158,16 +158,20 @@ public class ConstantPropagation extends
      * Meets two Values.
      */
     public Value meetValue(Value v1, Value v2) {
-        if (v1.isUndef() && v2.isConstant()) {
+        if (v1.isNAC() || v2.isNAC()) {
+            return Value.getNAC();
+        } else if (v1.isUndef() && v2.isConstant()) {
             return v2;
         } else if (v2.isUndef() && v1.isConstant()) {
             return v1;
         } else if (v2.isUndef() && v1.isUndef()) {
             return Value.getUndef();
-        } else if (v1 == v2 && v1.isConstant() && v2.isConstant()) {
-            return v1;
-        } else if(v1.isNAC() || v2.isNAC()) {
-            return Value.getNAC();
+        } else if (v1.isConstant() && v2.isConstant()) {
+            if(v1.getConstant() == v2.getConstant()){
+                return v1;
+            }else{
+                return Value.getNAC();
+            }
         }
         return Value.getUndef();
     }
