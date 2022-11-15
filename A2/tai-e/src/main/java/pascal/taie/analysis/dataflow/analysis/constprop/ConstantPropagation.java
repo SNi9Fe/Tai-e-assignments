@@ -34,8 +34,6 @@ import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
 
-import java.util.Map;
-
 public class ConstantPropagation extends
         AbstractDataflowAnalysis<Stmt, CPFact> {
 
@@ -164,23 +162,26 @@ public class ConstantPropagation extends
             return v2;
         } else if (v2.isUndef() && v1.isConstant()) {
             return v1;
-        } else if (v1 == v2) {
+        } else if (v2.isUndef() && v1.isUndef()) {
+            return Value.getUndef();
+        } else if (v1 == v2 && v1.isConstant() && v2.isConstant()) {
             return v1;
-        } else {
+        } else if(v1.isNAC() || v2.isNAC()) {
             return Value.getNAC();
         }
+        return Value.getUndef();
     }
 
     @Override
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
-        if(stmt instanceof DefinitionStmt dStmt){
+        if (stmt instanceof DefinitionStmt dStmt) {
             CPFact oldOut = out.copy();
             out.copyFrom(in);
-            if(dStmt.getLValue() instanceof Var lVal && canHoldInt(lVal)){
+            if (dStmt.getLValue() instanceof Var lVal && canHoldInt(lVal)) {
                 out.update(lVal, evaluate(dStmt.getRValue(), in));
             }
             return !out.equals(oldOut);
-        }else {
+        } else {
             return out.copyFrom(in);
         }
     }
